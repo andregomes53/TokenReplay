@@ -47,7 +47,7 @@ class Model(object):
         n_g.transcTo = [n_end]
         n_h.transcTo = [n_end]
 
-        return n_start, n_end
+        return n_start
 
     def consumeActivity(self, activ):
         self.c += activ.tokens
@@ -66,7 +66,7 @@ class Model(object):
         return explored
 
     def checkTrace(self, trace):
-        root, end = self.build()
+        root = self.build()
         self.p += 1
         exploredActivities = root.transcTo
 
@@ -78,7 +78,6 @@ class Model(object):
             for activ in exploredActivities:
                 if n == activ.label: 
                     exploredActivities += self.consumeActivity(activ)
-                    # set(exploredActivities)
                     break
         
         if self.reachEnd:
