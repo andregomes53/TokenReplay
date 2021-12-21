@@ -1,8 +1,16 @@
 class Node(object):
-    def __init__(self,label,type,pairNodes = [], isStart = False, isEnd = False):
+    def __init__(self,label,pairNodes = []):
         self.label = label
-        self.node_type = type # t -> Transaction | s -> State
         self.transcTo = pairNodes
+
+class ActivityNode(Node):
+    def __init__(self, label, pairNodes=[], father=[]):
+        super().__init__(label, pairNodes=pairNodes)
+        self.father = father
+
+class ProcessNode(Node):
+    def __init__(self, label, pairNodes=[], isStart=False, isEnd=False):
+        super().__init__(label, pairNodes=pairNodes)
         self.isStart = isStart
         self.isEnd = isEnd
         self.tokens = 0
@@ -17,73 +25,78 @@ class Model(object):
         self.build()
 
     def build(self):
-        n_start = Node('start','t',isStart=True)
-        n_a = Node('a','s')
-        n_b = Node('b','s')
-        n_c = Node('c','s')
-        n_d = Node('d','s')
-        n_e = Node('e','s')
-        n_f = Node('f','s')
-        n_g = Node('g','s')
-        n_h = Node('h','s')
-        n_p1 = Node('p1','t')
-        n_p2 = Node('p2','t')
-        n_p3 = Node('p3','t')
-        n_p4 = Node('p4','t')
-        n_p5 = Node('p4','t')
-        n_end = Node('end','t',isEnd=True)
+        n_start = ProcessNode('start', isStart=True)
+        n_end = ProcessNode('end', isEnd=True)
+        n_p1 = ProcessNode('p1')
+        n_p2 = ProcessNode('p2')
+        n_p3 = ProcessNode('p3')
+        n_p4 = ProcessNode('p4')
+        n_p5 = ProcessNode('p4')
+        n_a = ActivityNode('a', pairNodes=[n_p1,n_p2], father=[n_start])
+        n_b = ActivityNode('b', pairNodes=[n_p3], father=[n_p1])
+        n_c = ActivityNode('c', pairNodes=[n_p3], father=[n_p1])
+        n_d = ActivityNode('d', pairNodes=[n_p4], father=[n_p2])
+        n_e = ActivityNode('e', pairNodes=[n_p5], father=[n_p3,n_p4])
+        n_f = ActivityNode('f', pairNodes=[n_p1,n_p2], father=[n_p5])
+        n_g = ActivityNode('g', pairNodes=[n_end], father=[n_p5])
+        n_h = ActivityNode('h', pairNodes=[n_end], father=[n_p5])
         n_start.transcTo = [n_a]
-        n_a.transcTo = [n_p1,n_p2]
         n_p1.transcTo = [n_b,n_c]
-        n_b.transcTo = [n_p3]
-        n_c.transcTo = [n_p3]
         n_p2.transcTo = [n_d]
-        n_d.transcTo = [n_p4]
         n_p3.transcTo = [n_e]
-        n_e.transcTo = [n_p5]
         n_p4.transcTo = [n_e]
         n_p5.transcTo = [n_g,n_h,n_f]
-        n_f.transcTo = [n_p1,n_p2]
-        n_g.transcTo = [n_end]
-        n_h.transcTo = [n_end]
+
+        n_start.tokens = 1 #Root process should start with a token
 
         return n_start
 
     def consumeActivity(self, activ):
-        self.c += activ.tokens
-        self.p += len(activ.transcTo)
+        for f in activ.father: # Consume the tokens from parent processes
+            f.tokens -= 1
+            self.c += 1
+        
         explored = []
-        for process in activ.transcTo:
-
-            if process.isEnd:
+        
+        for c in activ.transcTo: # Produce a token for all child processes
+            if c.isEnd:
                 self.reachEnd = True
-            
-            explored += process.transcTo
-            
-            for n in process.transcTo:
-                n.tokens += 1 
+            explored += c.transcTo
+            c.tokens += 1
+            self.p += 1
         
         return explored
 
     def checkTrace(self, trace):
         root = self.build()
-        self.p += 1
+
         exploredActivities = root.transcTo
-
-        for n in exploredActivities:
-            n.tokens += 1
-
+        
         while len(trace) != 0:
             n = trace.pop(0)
+
             for activ in exploredActivities:
-                if n == activ.label: 
+                if n == activ.label:
+                    found = True
                     exploredActivities += self.consumeActivity(activ)
                     break
-        
+
+            if not found:
+                self.m += 1
+                #self.seekNext()
+            
+            found = False 
+
         if self.reachEnd:
             self.c += 1
 
         print([self.p,self.c,self.m,self.r])
+
+        if self.m == self.r == 0:
+            print('trace succeeded')
+        else:
+            print('the trace has failed in conformance check')
+
         return self.getFitness()
 
     def getFitness(self):
@@ -98,10 +111,3 @@ def main():
     print(model.checkTrace(trace))
 
 main()
-
-
-
-
-
-
-
